@@ -832,7 +832,6 @@ static bool is_critial_process(struct task_struct *t) {
 }
 //#endif /*VENDOR_EDIT*/
 
-void __noreturn do_exit(long code);
 #ifndef CONFIG_PROFILING
 static BLOCKING_NOTIFIER_HEAD(task_exit_notifier);
 
@@ -859,7 +858,7 @@ void profile_task_exit(struct task_struct *tsk)
 }
 #endif
 
-void do_exit(long code)
+void __noreturn do_exit(long code)
 {
 	struct task_struct *tsk = current;
 	int group_dead;
