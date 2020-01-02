@@ -565,7 +565,6 @@ int ccu_power(struct ccu_power_s *power)
 
 		/*1. Enable CCU CAMSYS_CG_CON bit12 CCU_CGPDN=0*/
 		ccu_clock_enable();
-		ccu_irq_enable();
 		LOG_DBG("CCU CG released\n");
 
 		/*use user space buffer*/
@@ -579,6 +578,7 @@ int ccu_power(struct ccu_power_s *power)
 
 		ccuInfo.IsI2cPoweredOn = 1;
 		ccuInfo.IsCcuPoweredOn = 1;
+		ccu_irq_enable();
 
 	} else if (power->bON == 0) {
 		/*CCU Power off*/
