@@ -32,9 +32,7 @@
 #include <smi_conf.h>
 #include <smi_public.h>
 #include <smi_pmqos.h>
-#if IS_ENABLED(CONFIG_MTK_MMDVFS)
 #include <mmdvfs_pmqos.h>
-#endif
 #if IS_ENABLED(CONFIG_MTK_EMI)
 #include <plat_debug_api.h>
 #elif IS_ENABLED(CONFIG_MTK_EMI_BWL)
@@ -654,7 +652,6 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = smi_bwc_conf(&conf);
 		break;
 	}
-#if IS_ENABLED(CONFIG_MTK_MMDVFS)
 	case MTK_IOC_MMDVFS_QOS_CMD:
 	{
 		struct MTK_MMDVFS_QOS_CMD config;
@@ -678,7 +675,6 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	}
-#endif
 #ifdef MMDVFS_HOOK
 	case MTK_IOC_SMI_BWC_INFO_SET:
 	{
