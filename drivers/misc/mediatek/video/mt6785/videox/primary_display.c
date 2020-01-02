@@ -1122,7 +1122,7 @@ int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx)
 	else
 		fps_ctx->dsi_mode = 0;
 
-	DISPINFO("%s done", __func__);
+	DISPINFO("%s done\n", __func__);
 
 	return 0;
 }
@@ -1137,7 +1137,7 @@ int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx)
 	else
 		fps_ctx->dsi_mode = 0;
 
-	DISPINFO("%s done", __func__);
+	DISPINFO("%s done\n", __func__);
 
 	return 0;
 }
@@ -1157,7 +1157,7 @@ int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx, unsigned long long cur_ns)
 	}
 
 	if (mutex_trylock(&fps_ctx->lock) == 0) {
-		DISPMSG("%s try lock fail", __func__);
+		DISPMSG("%s try lock fail\n", __func__);
 		fps_ctx->last_ns = cur_ns;
 		return 0;
 	}
@@ -1174,7 +1174,7 @@ int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx, unsigned long long cur_ns)
 
 	mutex_unlock(&fps_ctx->lock);
 
-	DISPINFO("%s update %lld to index %d", __func__, delta, idx);
+	DISPINFO("%s update %lld to index %d\n", __func__, delta, idx);
 
 	return 0;
 }
@@ -1192,7 +1192,7 @@ unsigned int lcm_fps_ctx_get(struct lcm_fps_ctx_t *fps_ctx)
 		lcm_fps_ctx_init(fps_ctx);
 
 	if (fps_ctx->num <= 3) {
-		DISPMSG("%s num is %d which is < 3, so return fix fps",
+		DISPMSG("%s num is %d which is < 3, so return fix fps\n",
 			__func__, fps_ctx->num);
 		if (primary_display_is_idle() &&
 			fps_ctx->dsi_mode == 1)
@@ -1212,11 +1212,11 @@ unsigned int lcm_fps_ctx_get(struct lcm_fps_ctx_t *fps_ctx)
 	duration_avg = duration_sum / (fps_ctx->num - 2);
 	do_div(fps, duration_avg);
 
-	DISPINFO("%s remove max = %lld, min = %lld, sum = %lld, num = %d",
+	DISPINFO("%s remove max = %lld, min = %lld, sum = %lld, num = %d\n",
 		__func__,
 		duration_max, duration_min, duration_sum, fps_ctx->num);
 
-	DISPINFO("%s fps = %d", __func__, fps);
+	DISPINFO("%s fps = %d\n", __func__, (unsigned int)fps);
 
 	mutex_unlock(&fps_ctx->lock);
 	return (unsigned int)fps;
