@@ -773,7 +773,7 @@ static void process_dbg_opt(const char *opt)
 		primary_display_mipi_clk_change(clk);
 	} else if (strncmp(opt, "dsipattern:", 11) == 0) {
 		char *p = (char *)opt + 11;
-		unsigned int pattern;
+		unsigned int pattern = 0;
 
 		ret = kstrtouint(p, 0, &pattern);
 		if (ret) {
@@ -950,7 +950,7 @@ static void process_dbg_opt(const char *opt)
 		dprec_handle_option(0x3);
 	} else if (strncmp(opt, "dprec", 5) == 0) {
 		char *p = (char *)opt + 6;
-		unsigned int option;
+		unsigned int option = 0;
 
 		ret = kstrtouint(p, 0, &option);
 		if (ret) {

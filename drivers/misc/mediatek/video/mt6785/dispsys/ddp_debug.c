@@ -546,7 +546,7 @@ static void process_dbg_opt(const char *opt)
 		}
 	} else if (strncmp(opt, "debug:", 6) == 0) {
 		char *p = (char *)opt + 6;
-		unsigned int enable;
+		unsigned int enable = 0;
 
 		ret = kstrtouint(p, 0, &enable);
 		if (ret) {

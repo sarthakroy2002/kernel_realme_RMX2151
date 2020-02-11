@@ -276,7 +276,7 @@ int do_esd_check_eint(void)
 
 	DISPINFO("[ESD]ESD check eint\n");
 	mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,
-		primary_display_is_video_mode(), GPIO_EINT_MODE);
+		(primary_display_is_video_mode() > 0), GPIO_EINT_MODE);
 	primary_display_switch_esd_mode(GPIO_EINT_MODE);
 
 	if (wait_event_interruptible_timeout(esd_ext_te_wq,
