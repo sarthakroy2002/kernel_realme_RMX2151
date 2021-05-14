@@ -4076,7 +4076,7 @@ static int fb_notifier_callback(struct notifier_block *nb, unsigned long event, 
                 if (event == FB_EVENT_BLANK) {
                         blank = *(int *)evdata->data;
                         if (blank == FB_BLANK_UNBLANK) {
-                                g_charger_chip->led_on = true;
+                                g_charger_chip->led_on = false;
                                 g_charger_chip->led_on_change = true;
 								if(is_project(19661)){
 									/*zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling*/
