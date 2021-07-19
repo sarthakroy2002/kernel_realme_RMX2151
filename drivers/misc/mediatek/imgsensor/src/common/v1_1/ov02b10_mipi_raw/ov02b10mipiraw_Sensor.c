@@ -265,7 +265,7 @@ static void set_max_framerate(UINT16 framerate,kal_bool min_framelength_en)
     }
     if (min_framelength_en)
         imgsensor.min_frame_length = imgsensor.frame_length;
-        spin_unlock(&imgsensor_drv_lock);
+    spin_unlock(&imgsensor_drv_lock);
 
     set_dummy();
 }    /*    set_max_framerate  */
