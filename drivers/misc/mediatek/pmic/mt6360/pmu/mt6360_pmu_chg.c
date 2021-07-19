@@ -40,8 +40,15 @@
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
 
-#define MT6360_PMU_CHG_DRV_VERSION	"1.0.5_MTK"
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+#include "../../../../../power/supply/oppo/oppo_vooc.h"
+#endif
 
+#define MT6360_PMU_CHG_DRV_VERSION	"1.0.5_MTK"
+#ifdef ODM_HQ_EDIT
+/*wangtao@ODM.HQ.BSP.CHG 2020/06/23 close mt6360 charge*/
+extern int is_sala_a_project(void);
+#endif
 void __attribute__ ((weak)) Charger_Detect_Init(void)
 {
 }
@@ -107,6 +114,12 @@ struct mt6360_pmu_chg_info {
 	struct workqueue_struct *pe_wq;
 	struct work_struct pe_work;
 	u8 ctd_dischg_status;
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+	struct delayed_work hvdcp_work;
+	struct delayed_work hvdcp_result_check_work;
+	enum power_supply_type hvdcp_type;
+#endif
 };
 
 /* for recive bat oc notify */
@@ -167,6 +180,14 @@ static const struct mt6360_chg_platform_data def_platform_data = {
 	.batoc_notify = false,
 	.chg_name = "primary_chg",
 };
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger 2019/09/4 modified for bring up charging */
+static struct mt6360_pmu_chg_info *oppompci = NULL;
+#endif
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger 2019/11/05,Add for OTG */
+extern void oppo_chg_set_otg_online(bool online);
+#endif
 
 /* ================== */
 /* Internal Functions */
@@ -329,7 +350,19 @@ static inline int mt6360_is_charger_enabled(struct mt6360_pmu_chg_info *mpci,
 	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHG_CTRL2);
 	if (ret < 0)
 		return ret;
-	*en = (ret & MT6360_MASK_CHG_EN) ? true : false;
+	#ifdef ODM_HQ_EDIT
+	/*wangtao@ODM.HQ.BSP.CHG 2020/06/23 close mt6360 charge*/
+	if (is_sala_a_project() == 2) {
+		mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_CHG_CTRL1,
+					MT6360_MASK_FORCE_SLEEP,0xff);
+		*en = false;
+	}else {
+		*en = (ret & MT6360_MASK_CHG_EN) ? true : false;
+	}
+	#else
+		*en = (ret & MT6360_MASK_CHG_EN) ? true : false;
+	#endif
+
 	return 0;
 }
 
@@ -544,6 +577,28 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 #else
 	attach = mpci->pwr_rdy;
 #endif /* CONFIG_TCPC_CLASS */
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+    if (is_sala_a_project() == 2) {
+	ret = mt6360_pmu_reg_write(mpci->mpi, HVDCP_DEVICE_TYPE, 0x0);
+	if (ret < 0)
+		dev_err(mpci->dev, "%s: fail to write hvdcp_device_type\n", __func__);
+
+	ret = mt6360_pmu_reg_write(mpci->mpi, MT6360_PMU_DPDM_CTRL, 0x0);
+        if (ret < 0)
+                dev_err(mpci->dev, "%s: fail to write dpdm_ctrl\n", __func__);
+
+	if (!attach) {
+		cancel_delayed_work_sync(&mpci->hvdcp_work);
+		cancel_delayed_work_sync(&mpci->hvdcp_result_check_work);
+		mpci->chg_type = CHARGER_UNKNOWN;
+		mpci->hvdcp_type = POWER_SUPPLY_TYPE_UNKNOWN,
+		mt6360_psy_chg_type_changed(mpci);
+	}
+    }
+#endif
+
 	if (attach && is_meta_mode()) {
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(mpci->dev, "%s: force Standard USB Host in meta\n",
@@ -603,10 +658,38 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 		break;
 	case MT6360_CHG_TYPE_DCP:
 		mpci->chg_type = STANDARD_CHARGER;
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+        dev_err(mpci->dev, "%s: enable hvdcp detect sala-a -----\n", __func__);
+        if (is_sala_a_project() == 2) {
+
+                if (mt6360_pmu_reg_write(mpci->mpi, HVDCP_DEVICE_TYPE, 0x0) < 0){
+                    dev_err(mpci->dev,"fail to write hvdcp_device_type fail\n");
+                }
+
+                if (mt6360_pmu_reg_write(mpci->mpi, MT6360_PMU_DPDM_CTRL, 0x13) < 0){
+                    dev_err(mpci->dev,"fail to write MT6360_PMU_DPDM_CTRL fail\n");
+                }
+        } 
+#endif
 		break;
 	}
 out:
 	if (!attach) {
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+        if (is_sala_a_project() == 2) {
+		cancel_delayed_work_sync(&mpci->hvdcp_work);
+		cancel_delayed_work_sync(&mpci->hvdcp_result_check_work);
+		mpci->hvdcp_type = POWER_SUPPLY_TYPE_UNKNOWN;
+
+		ret = mt6360_pmu_reg_write(mpci->mpi, MT6360_PMU_DPDM_CTRL, 0x0);
+		if (ret < 0)
+			dev_err(mpci->dev, "%s: fail to write dpdm_ctrl\n", __func__);
+    }
+#endif
 		ret = __mt6360_enable_usbchgen(mpci, false);
 		if (ret < 0)
 			dev_notice(mpci->dev, "%s: disable chgdet fail\n",
@@ -772,7 +855,10 @@ static int mt6360_enable(struct charger_device *chg_dev, bool en)
 				   "%s: set ichg fail\n", __func__);
 			goto vsys_wkard_fail;
 		}
+		#ifndef ODM_HQ_EDIT
+		/* zhangchao@ODM.HQ.Charger 2019/11/05 modified for bring up charging */
 		mdelay(ichg_ramp_t);
+		#endif
 	} else {
 		if (mpci->ichg == mpci->ichg_dis_chg) {
 			ret = __mt6360_set_ichg(mpci, mpci->ichg);
@@ -1404,12 +1490,26 @@ static int mt6360_enable_otg(struct charger_device *chg_dev, bool en)
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
 	int ret = 0;
 
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger 2019/11/05,Add for OTG */
+	static struct power_supply *battery_psy = NULL;
+	if (!battery_psy) {
+		battery_psy = power_supply_get_by_name("battery");
+		//dev_err(mpci->dev, "%s: battery_psy null\n", __func__);
+	}
+#endif /*ODM_HQ_EDIT*/
 	dev_dbg(mpci->dev, "%s: en = %d\n", __func__, en);
 	ret = mt6360_enable_wdt(mpci, en ? true : false);
 	if (ret < 0) {
 		dev_err(mpci->dev, "%s: set wdt fail, en = %d\n", __func__, en);
 		return ret;
 	}
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger 2019/11/05,Add for OTG */
+	oppo_chg_set_otg_online(en ? true : false);
+	if (battery_psy)
+		power_supply_changed(battery_psy);
+#endif /*ODM_HQ_EDIT*/
 	return mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_CHG_CTRL1,
 					  MT6360_MASK_OPA_MODE, en ? 0xff : 0);
 }
@@ -2183,11 +2283,36 @@ static irqreturn_t mt6360_pmu_bst_vbusovi_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger, 2019/12/13,Modify for OTG */
+static struct delayed_work mt6360_bst_olpi_work;
+extern int tcpc_otg_disable(void);
+extern void tcpc_power_work_call(bool enable);
+
+static void mt6360_otg_ocp_work(struct work_struct *data)
+{
+	/*set usb to device mode*/
+	printk(KERN_ERR "%s NULL\n", __func__);
+	tcpc_otg_disable();
+	/*disable vbus*/
+	tcpc_power_work_call(false);
+}
+#endif /*ODM_HQ_EDIT*/
+
 static irqreturn_t mt6360_pmu_bst_olpi_handler(int irq, void *data)
 {
 	struct mt6360_pmu_chg_info *mpci = data;
 
 	dev_warn(mpci->dev, "%s\n", __func__);
+	dev_err(mpci->dev, "%s\n", __func__);
+	dev_dbg(mpci->dev, "%s\n", __func__);
+	printk(KERN_ERR "%s NULL\n", __func__);
+	dev_info(mpci->dev, "%s\n", __func__);
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger, 2019/12/13,Modify for OTG */
+	cancel_delayed_work_sync(&mt6360_bst_olpi_work);
+	schedule_delayed_work(&mt6360_bst_olpi_work, 0);
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -2218,11 +2343,81 @@ static irqreturn_t mt6360_pmu_detachi_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+static void mt6360_hvdcp_result_check_work(struct work_struct *work)
+{
+        int ret = 0;
+        struct mt6360_pmu_chg_info *mpci =
+                (struct mt6360_pmu_chg_info *)container_of(work,
+                struct mt6360_pmu_chg_info, hvdcp_result_check_work.work);
+
+        dev_err(mpci->dev, "%s\n", __func__);
+
+        ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_DEVICE_TYPE);
+        if (ret < 0) {
+                dev_err(mpci->dev, "%s: fail to read device_type\n", __func__);
+        }
+
+        dev_err(mpci->dev, "%s: device type: %d\n", __func__, ret);
+
+        if (ret & BIT(3)) {
+                dev_err(mpci->dev, "%s: HVDCP detect\n", __func__);
+                mpci->hvdcp_type = POWER_SUPPLY_TYPE_USB_HVDCP;
+                ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_DPDM_CTRL, 0x1F, 0x15);
+                if (ret < 0)
+                        dev_err(mpci->dev, "%s: fail to write dpdm_ctrl\n", __func__);
+        } else {
+                mpci->hvdcp_type = POWER_SUPPLY_TYPE_USB_DCP;
+                dev_err(mpci->dev, "%s: HVDCP not detect\n", __func__);
+	}
+
+}
+
+static void mt6360_hvdcp_work(struct work_struct *work)
+{
+        int ret = 0;
+        struct mt6360_pmu_chg_info *mpci =
+                (struct mt6360_pmu_chg_info *)container_of(work,
+                struct mt6360_pmu_chg_info, hvdcp_work.work);
+
+	dev_err(mpci->dev, "%s\n", __func__);
+
+	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_DEVICE_TYPE);
+	if (ret < 0) {
+		dev_err(mpci->dev, "%s: fail to read device_type\n", __func__);
+	}
+
+	dev_err(mpci->dev, "%s: device type: %d\n", __func__, ret);
+
+	if (ret & BIT(3)) {
+		dev_err(mpci->dev, "%s: HVDCP detect\n", __func__);
+		mpci->hvdcp_type = POWER_SUPPLY_TYPE_USB_HVDCP;
+		ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_DPDM_CTRL, 0x1F, 0x15);
+		if (ret < 0)
+			dev_err(mpci->dev, "%s: fail to write dpdm_ctrl\n", __func__);
+	} else {
+		mpci->hvdcp_type = POWER_SUPPLY_TYPE_USB_DCP;
+		dev_err(mpci->dev, "%s: HVDCP not detect\n", __func__);
+	}
+
+}
+#endif
+
 static irqreturn_t mt6360_pmu_hvdcp_det_handler(int irq, void *data)
 {
 	struct mt6360_pmu_chg_info *mpci = data;
 
 	dev_dbg(mpci->dev, "%s\n", __func__);
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+    if (is_sala_a_project() == 2) {
+	cancel_delayed_work_sync(&mpci->hvdcp_result_check_work);
+	schedule_delayed_work(&mpci->hvdcp_work, msecs_to_jiffies(150));
+    }
+#endif
+
 	return IRQ_HANDLED;
 }
 
@@ -2668,14 +2863,22 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 	ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_USBID_CTRL2,
 					 MT6360_MASK_IDTD |
 					 MT6360_MASK_USBID_FLOAT, 0x62);
+
+	#ifdef ODM_HQ_EDIT
+	/*wangtao@ODM.BSP.System  2019/09/06 close otp for usb*/
 	/* Disable TypeC OTP for check EVB version by TS pin */
 	ret = mt6360_pmu_reg_clr_bits(mpci->mpi, MT6360_PMU_TYPEC_OTP_CTRL,
 				      MT6360_MASK_TYPEC_OTP_EN);
+	#endif
 	return ret;
 }
 
 static int mt6360_set_shipping_mode(struct mt6360_pmu_chg_info *mpci)
 {
+	#ifdef ODM_HQ_EDIT
+	/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for use MTK ship_mode*/
+	printk("mt6360_set_shipping_mode\n");
+	#endif
 	return mt6360_pmu_reg_set_bits(mpci->mpi,
 				     MT6360_PMU_CHG_CTRL2, 0x80);
 }
@@ -2727,6 +2930,211 @@ void mt6360_recv_batoc_callback(BATTERY_OC_LEVEL tag)
 		 pmic_get_register_value(PMIC_RG_INT_STATUS_FG_CUR_H));
 }
 
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger 2019/09/4 modified for bring up charging */
+bool mt6360_get_vbus_status(void)
+{
+	bool vbus_rising = false;
+
+	if (oppompci) {
+		mt6360_get_chrdet_ext_stat(oppompci, &vbus_rising);
+	} else {
+		printk(KERN_ERR "%s NULL\n", __func__);
+	}
+	return vbus_rising;
+}
+EXPORT_SYMBOL(mt6360_get_vbus_status);
+
+int mt6360_get_vbus_rising(void)
+{
+	bool vbus_rising = false;
+	int ret = 0;
+
+	if (oppompci) {
+		ret = mt6360_get_chrdet_ext_stat(oppompci, &vbus_rising);
+	} else {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return 0;
+	}
+	return (ret < 0) ? ret : vbus_rising;
+}
+EXPORT_SYMBOL(mt6360_get_vbus_rising);
+
+int mt6360_chg_enable(bool en)
+{
+	int rc = 0;
+
+	if (oppompci) {
+		rc = mt6360_pmu_reg_update_bits(oppompci->mpi, MT6360_PMU_CHG_CTRL2,
+				MT6360_MASK_CHG_EN, en ? 0xff : 0);
+	} else {
+		printk(KERN_ERR "%s NULL\n", __func__);
+	}
+	return rc;
+}
+EXPORT_SYMBOL(mt6360_chg_enable);
+
+int mt6360_check_charging_enable(void)
+{
+	bool chg_enable = false;
+
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return false;
+	}
+	mt6360_is_charger_enabled(oppompci, &chg_enable);
+	return chg_enable;
+}
+EXPORT_SYMBOL(mt6360_check_charging_enable);
+
+int mt6360_suspend_charger(bool suspend)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+
+	return mt6360_pmu_reg_update_bits(oppompci->mpi, MT6360_PMU_CHG_CTRL1,
+			MT6360_MASK_FORCE_SLEEP, suspend ? 0xff : 0);
+}
+EXPORT_SYMBOL(mt6360_suspend_charger);
+
+int mt6360_set_rechg_voltage(int rechg_mv)
+{
+	unsigned char reg = 0;
+
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+	if (rechg_mv < 150) {
+		reg = 0x0;//100mV
+	} else if (rechg_mv < 200) {
+		reg = 0x1;//150mV
+	} else if (rechg_mv < 250) {
+		reg = 0x2;//200mV
+	} else {
+		reg = 0x3;//250mV
+	}
+	return mt6360_pmu_reg_update_bits(oppompci->mpi,
+			MT6360_PMU_CHG_CTRL11, 0x03, reg);
+}
+EXPORT_SYMBOL(mt6360_set_rechg_voltage);
+
+int mt6360_reset_charger(void)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+	return mt6360_pmu_reg_update_bits(oppompci->mpi,
+			MT6360_PMU_RST1, 0x40, 0x40);
+}
+EXPORT_SYMBOL(mt6360_reset_charger);
+
+int mt6360_set_chging_term_disable(bool disable)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+	return mt6360_pmu_reg_update_bits(oppompci->mpi,
+			MT6360_PMU_CHG_CTRL9, 0x08, disable ? 0x0 : 0x08);
+}
+EXPORT_SYMBOL(mt6360_set_chging_term_disable);
+
+int mt6360_aicl_enable(bool enable)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+	return mt6360_pmu_reg_update_bits(oppompci->mpi,
+			MT6360_PMU_CHG_CTRL6, 0x1, enable ? 1 : 0);
+}
+EXPORT_SYMBOL(mt6360_aicl_enable);
+
+int mt6360_chg_enable_wdt(bool enable)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+	return mt6360_enable_wdt(oppompci, enable);
+}
+EXPORT_SYMBOL(mt6360_chg_enable_wdt);
+
+int mt6360_set_register(unsigned char addr, unsigned char mask, unsigned char data)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+	return mt6360_pmu_reg_update_bits(oppompci->mpi, addr, mask, data);
+}
+EXPORT_SYMBOL(mt6360_set_register);
+
+int mt6360_enter_shipmode(void)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return -1;
+	}
+	return mt6360_set_shipping_mode(oppompci);
+}
+EXPORT_SYMBOL(mt6360_enter_shipmode);
+#endif /* ODM_HQ_EDIT */
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+enum power_supply_type mt6360_get_hvdcp_type(void)
+{
+	if (!oppompci) {
+		printk(KERN_ERR "%s NULL\n", __func__);
+		return POWER_SUPPLY_TYPE_USB_DCP;
+        }
+
+	return oppompci->hvdcp_type;
+}
+
+void mt6360_enable_hvdcp_detect(void)
+{
+        int ret = 0;
+
+	if (!oppompci) {
+                printk(KERN_ERR "%s oppompci NULL\n", __func__);
+                return ;
+        }
+
+        dev_err(oppompci->dev, "%s\n", __func__);
+
+	/*Lukaili@BSP.CHG.Basic, 2020/06/16, Add for qc compatible for vooc project*/
+	//dev_err(oppompci->dev, "%s: enable hvdcp detect is_mtksvooc_project = %d\n", __func__, is_mtksvooc_project);
+	  if (is_sala_a_project() == 2) {
+		goto enable_hvdcp;
+	}
+
+enable_hvdcp:
+	ret = mt6360_pmu_reg_write(oppompci->mpi, HVDCP_DEVICE_TYPE, 0x0);
+	if (ret < 0)
+		dev_err(oppompci->dev, "%s: fail to write hvdcp_device_type\n", __func__);
+
+	ret = mt6360_pmu_reg_write(oppompci->mpi, MT6360_PMU_DPDM_CTRL, 0x0);
+	if (ret < 0)
+		dev_err(oppompci->dev, "%s: fail to write dpdm_ctrl\n", __func__);
+
+	ret = mt6360_pmu_reg_update_bits(oppompci->mpi, HVDCP_DEVICE_TYPE, 0x80, 0x80);
+	if (ret < 0)
+		dev_err(oppompci->dev, "%s: fail to write dpdm_ctrl\n", __func__);
+
+	__mt6360_enable_usbchgen(oppompci, false);
+	__mt6360_enable_usbchgen(oppompci, true);
+
+	schedule_delayed_work(&oppompci->hvdcp_result_check_work, msecs_to_jiffies(3000));
+}
+EXPORT_SYMBOL(mt6360_enable_hvdcp_detect);
+#endif
+
 static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 {
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(&pdev->dev);
@@ -2773,6 +3181,16 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 && !defined(CONFIG_TCPC_CLASS)
 	INIT_WORK(&mpci->chgdet_work, mt6360_chgdet_work_handler);
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+    if (is_sala_a_project() == 2) {
+	INIT_DELAYED_WORK(&mpci->hvdcp_work, mt6360_hvdcp_work);
+	INIT_DELAYED_WORK(&mpci->hvdcp_result_check_work, mt6360_hvdcp_result_check_work);
+	mpci->hvdcp_type = POWER_SUPPLY_TYPE_UNKNOWN;
+    }
+#endif
+
 	init_completion(&mpci->aicc_done);
 	init_completion(&mpci->pumpx_done);
 	atomic_set(&mpci->pe_complete, 0);
@@ -2850,6 +3268,11 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	schedule_work(&mpci->chgdet_work);
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
 	dev_info(&pdev->dev, "%s: successfully probed\n", __func__);
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger 2019/09/4 modified for bring up charging */
+	oppompci = mpci;
+	INIT_DELAYED_WORK(&mt6360_bst_olpi_work, mt6360_otg_ocp_work);
+#endif
 	return 0;
 err_shipping_mode_attr:
 	device_remove_file(mpci->dev, &dev_attr_shipping_mode);

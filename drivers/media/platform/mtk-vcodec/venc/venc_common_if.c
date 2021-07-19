@@ -248,6 +248,12 @@ static int venc_encode_frame_final(struct venc_inst *inst,
 	return ret;
 }
 
+enum teeEnvType {
+	NONE_TEE = 0,
+	TRUSTONIC_TEE = 1,
+	INHOUSE_TEE = 2,
+	MICROTRUST_TEE = 3,
+};
 
 static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 {
@@ -265,10 +271,16 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264: {
-		if (ctx->oal_vcodec == 1)
-			inst->vcu_inst.id = IPI_VENC_HYBRID_H264;
-		else
-			inst->vcu_inst.id = IPI_VENC_H264;
+		if (ctx->enc_params.svp_mode == INHOUSE_TEE) {
+		    inst->vcu_inst.id = IPI_VENC_INHOUSE_H264;
+		} else if (ctx->enc_params.svp_mode != NONE_TEE) {
+		    inst->vcu_inst.id = IPI_VENC_SEC_H264;
+		} else {
+		    if (ctx->oal_vcodec == 1)
+		        inst->vcu_inst.id = IPI_VENC_HYBRID_H264;
+		    else
+		        inst->vcu_inst.id = IPI_VENC_H264;
+		}
 		break;
 	}
 
@@ -302,6 +314,7 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	}
 
 	inst->hw_base = mtk_vcodec_get_enc_reg_addr(inst->ctx, VENC_SYS);
+	inst->vcu_inst.handler = vcu_enc_ipi_handler;
 
 	mtk_vcodec_debug_enter(inst);
 

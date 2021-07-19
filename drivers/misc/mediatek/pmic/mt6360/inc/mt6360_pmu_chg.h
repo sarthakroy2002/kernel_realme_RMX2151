@@ -40,8 +40,6 @@ struct mt6360_chg_platform_data {
 /* MT6360_PMU_CHG_CTRL1 : 0x11 */
 #define MT6360_MASK_FORCE_SLEEP	BIT(3)
 #define MT6360_SHFT_FORCE_SLEEP	(3)
-#define MT6360_MASK_HZ_EN	BIT(2)
-#define MT6360_SHFT_HZ_EN	(2)
 #define MT6360_MASK_OPA_MODE	BIT(0)
 #define MT6360_SHFT_OPA_MODE	(0)
 
@@ -148,6 +146,11 @@ struct mt6360_chg_platform_data {
 /* MT6360_PMU_TYPEC_OTP_CTRL: 0x51 */
 #define MT6360_MASK_TYPEC_OTP_SWEN	BIT(2)
 #define MT6360_MASK_TYPEC_OTP_EN	BIT(0)
+
+#ifdef ODM_HQ_EDIT
+/*wangtao@ODM.BSP.System  2019/09/06 close otp for usb*/
+#define MT6360_MASK_TYPEC_OTP_EN	BIT(0)
+#endif
 
 /* MT6360_PMU_ADC_CONFIG : 0x56 */
 #define MT6360_MASK_ZCV_EN	BIT(6)

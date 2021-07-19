@@ -2617,7 +2617,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			goto NON_CLEAR_WAIT;
 		}
 	}
-#ifdef ENABLE_WAITIRQ_LOG
+//#ifdef ENABLE_WAITIRQ_LOG
 	if (WaitIrq->EventInfo.UserKey == 1) {
 		LOG_INF("Before wait: C:%d T:%d StT:%d Sts:0x%08X\n",
 			WaitIrq->EventInfo.Clear,
@@ -2630,7 +2630,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			WaitIrq->EventInfo.Timeout,
 			WaitIrq->EventInfo.UserKey);
 	}
-#endif
+//#endif
 	/* 2. start to wait signal */
 	if (log_on)
 		LOG_NOTICE("+ start to wait signal\n");
@@ -2727,6 +2727,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		Ret = -EFAULT;
 		goto EXIT;
 	}
+//#ifdef ENABLE_WAITIRQ_LOG
 	else {
 		/* Store irqinfo status in here to
 		 * redeuce time of spin_lock_irqsave
@@ -2741,7 +2742,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[
 			WaitIrq->Type]), flags);
-#ifdef ENABLE_WAITIRQ_LOG
+
 		if (WaitIrq->EventInfo.UserKey == 1) {
 			LOG_INF("Done WaitIrq Clear(%d) Type(%d) StType(%d)\n",
 				WaitIrq->EventInfo.Clear,
@@ -2753,8 +2754,8 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 				WaitIrq->EventInfo.Timeout,
 				WaitIrq->EventInfo.UserKey);
 		}
-#endif
 	}
+//#endif
 
 NON_CLEAR_WAIT:
 	/* 3. get interrupt and update time related
@@ -8309,9 +8310,9 @@ irqreturn_t ISP_Irq_CAM_C(int  Irq, void *DeviceId)
 	return ISP_Irq_CAM(ISP_IRQ_TYPE_INT_CAM_C_ST);
 }
 
-#define Sylvia_WAM_CQ_ERR   (1)
+#define P1_WAM_CQ_ERR   (1)
 
-#if Sylvia_WAM_CQ_ERR
+#if P1_WAM_CQ_ERR
 static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 {
 		unsigned int i = regModule;
@@ -9489,8 +9490,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					"SW ISR right on next hw p1_done\n");
 
 		}
-#if Sylvia_WAM_CQ_ERR
-		ISP_RecordCQAddr(reg_module);
+#if P1_WAM_CQ_ERR
+		if (!(ErrStatus & CQ_VS_ERR_ST))
+			ISP_RecordCQAddr(reg_module);
 #endif
 		/* update SOF time stamp for eis user
 		 *(need match with the time stamp in image header)
@@ -9564,7 +9566,6 @@ LB_CAM_SOF_IGNORE:
 			[ISP_WAITQ_HEAD_IRQ_SW_P1_DONE]);
 	}
 	if (DmaStatus & AAO_DONE_ST) {
-#ifdef ENABLE_STT_IRQ_LOG
 		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 			"CAM_%c AAO_DONE_%d_%d(aao_ctrl_1:0x%x,aao_ctrl_2:0x%x)\n",
 			'A'+cardinalNum, sof_count[module],
@@ -9573,7 +9574,6 @@ LB_CAM_SOF_IGNORE:
 			CAM_REG_FBC_AAO_CTL1(reg_module))),
 			(unsigned int)(ISP_RD32(
 			CAM_REG_FBC_AAO_CTL2(reg_module))));
-#endif
 		wake_up_interruptible(&IspInfo.WaitQHeadCam
 			[ISP_GetWaitQCamIndex(module)]
 			[ISP_WAITQ_HEAD_IRQ_AAO_DONE]);
@@ -9635,7 +9635,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 		}
 		if (g_ISPIntStatus_SMI[irq_module].ispIntErr &
 			CQ_VS_ERR_ST) {
-#if Sylvia_WAM_CQ_ERR
+#if P1_WAM_CQ_ERR
 			CQ_Recover(g_ISPIntStatus_SMI[irq_module].ispIntErr,
 				irq_module);
 #endif

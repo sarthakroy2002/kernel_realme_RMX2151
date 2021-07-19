@@ -43,6 +43,12 @@
 
 #include "phy-mtk-ssusb-reg.h"
 
+#ifdef VENDOR_EDIT
+/* Jianwei.Ye@BSP.CHG.Basic, 2019/12/5, modify for otg eye picture*/
+#include <soc/oppo/oppo_project.h>
+extern bool get_otg_switch(void);
+#endif /* VENDOR_EDIT */
+
 static DEFINE_MUTEX(prepare_lock);
 
 enum mt_phy_version {
@@ -387,10 +393,25 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 		}
 		instance->phy_tuning.inited = true;
 	}
+#ifdef VENDOR_EDIT
+/* Jianwei.Ye@BSP.CHG.Basic, 2019/12/5, modify for otg eye picture*/
+	if (!is_project(OPPO_UNKOWN)) {
+		if(get_otg_switch() == true) {
+			u2_vrt_ref = 4;
+			u2_term_ref = 4;
+			u2_enhance = 2;
+		}
+		else {
+			u2_vrt_ref = instance->phy_tuning.u2_vrt_ref;
+			u2_term_ref = instance->phy_tuning.u2_term_ref;
+			u2_enhance = instance->phy_tuning.u2_enhance;
+		}
+	}
+#else
 	u2_vrt_ref = instance->phy_tuning.u2_vrt_ref;
 	u2_term_ref = instance->phy_tuning.u2_term_ref;
 	u2_enhance = instance->phy_tuning.u2_enhance;
-
+#endif
 	if (u2_vrt_ref != -1) {
 		if (u2_vrt_ref <= VAL_MAX_WIDTH_3) {
 			u3phywrite32(U3D_USBPHYACR1,
@@ -414,6 +435,48 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 	}
 }
 
+#ifdef TARGET_WATERMELON_Q_PROJECT
+/* liunianliang@BSP.System, for USB eye parameter */
+extern struct phy *mtk_phy;
+#define PHY_DEV_ACTIVE      1
+#define PHY_HOST_ACTIVE     2
+void set_usb_phy_mode(int mode)
+{
+	struct mtk_phy_instance *instance;
+
+	if (!mtk_phy) {
+		phy_printk(K_CRIT, "--%s--: mtk_phy is null!\n", __func__);
+		return;
+	}
+
+	instance = phy_get_drvdata(mtk_phy);
+
+	phy_printk(K_CRIT, "--%s-,%x\n", __func__ , mode);
+	switch (mode) {
+		case PHY_DEV_ACTIVE:
+			//usb device
+			u3phywrite32(U3D_USBPHYACR1, RG_USB20_VRT_VREF_SEL_OFST,
+				RG_USB20_VRT_VREF_SEL, 4);
+			u3phywrite32(U3D_USBPHYACR1, RG_USB20_TERM_VREF_SEL_OFST,
+				RG_USB20_TERM_VREF_SEL, 4);
+			u3phywrite32(U3D_USBPHYACR6, RG_USB20_PHY_REV_6_OFST,
+				RG_USB20_PHY_REV_6, 1);
+			break;
+		case PHY_HOST_ACTIVE:
+			//usb host
+			u3phywrite32(U3D_USBPHYACR1, RG_USB20_VRT_VREF_SEL_OFST,
+				RG_USB20_VRT_VREF_SEL, 4);
+			u3phywrite32(U3D_USBPHYACR1, RG_USB20_TERM_VREF_SEL_OFST,
+				RG_USB20_TERM_VREF_SEL, 4);
+			u3phywrite32(U3D_USBPHYACR6, RG_USB20_PHY_REV_6_OFST,
+				RG_USB20_PHY_REV_6, 1);
+			break;
+		default:
+			phy_printk(K_CRIT, "%s-\n", __func__);
+			break;
+	}
+}
+#endif
 
 static void phy_recover(struct mtk_phy_instance *instance)
 {
@@ -482,6 +545,12 @@ static void phy_recover(struct mtk_phy_instance *instance)
 		RG_USB20_DISCTH, 0xF);
 
 	usb_phy_tuning(instance);
+
+#ifdef TARGET_WATERMELON_Q_PROJECT
+/* liunianliang@BSP.System, for USB eye parameter */
+	set_usb_phy_mode(PHY_DEV_ACTIVE);
+#endif
+
 	phy_advance_settings(instance);
 
 	phy_slew_rate_calibration(instance);

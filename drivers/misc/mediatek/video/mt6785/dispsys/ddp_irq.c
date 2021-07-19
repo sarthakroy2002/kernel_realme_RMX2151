@@ -218,12 +218,6 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 		if (module == DISP_MODULE_DSI0) {
 			reg_val = (DISP_REG_GET(DISPSYS_DSI0_BASE + 0xC) &
 				   0xffff);
-			if (reg_val & (1 << 2) &&
-				lcm_fps_ctx.dsi_mode == 0) {
-				unsigned long long ext_te_time = sched_clock();
-
-				lcm_fps_ctx_update(&lcm_fps_ctx, ext_te_time);
-			}
 		}
 		else
 			reg_val = (DISP_REG_GET(DISPSYS_DSI1_BASE + 0xC) &
@@ -382,10 +376,6 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 
 			if (index == 0) {
 				MMPathTracePrimaryOvl2Dsi();
-				if (lcm_fps_ctx.dsi_mode == 1) {
-					lcm_fps_ctx_update(&lcm_fps_ctx,
-						rdma_end_time[index]);
-				}
 			}
 		}
 		if (reg_val & (1 << 1)) {
@@ -467,9 +457,6 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 				mmprofile_log_ex(
 					ddp_mmp_get_events()->MUTEX_IRQ[m_id],
 					MMPROFILE_FLAG_PULSE, reg_val, 0);
-				if (ddp_is_moudule_in_mutex(m_id,
-					DISP_MODULE_AAL0))
-					disp_aal_on_start_of_frame(DISP_AAL0);
 			}
 			if (reg_val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {
 				DDPIRQ("IRQ: mutex%d eof!\n", m_id);
