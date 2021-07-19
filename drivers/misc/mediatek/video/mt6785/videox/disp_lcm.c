@@ -1555,7 +1555,7 @@ static int backlight_remapping_into_tddic_reg(struct disp_lcm_handle *plcm, int 
 						level_temp = level/32 + 1;
 					else
 						level_temp = level/32;
-						level_temp = level_temp - 1;
+					level_temp = level_temp - 1;
 					if((level_temp*2 + 1) > lcm_params->blmap_size){
 						DISP_PR_ERR(" %s android brightness level is more than 2047 or LCM blmap_size is setting short than 128 = %d\n", __func__, lcm_params->blmap_size);
 						return 0;
@@ -1576,14 +1576,14 @@ static int backlight_remapping_into_tddic_reg(struct disp_lcm_handle *plcm, int 
 					level = lcm_params->brightness_min;
 				if (level > 3053)
 					level = 3053;
-					return level;
+				return level;
 			}else {
 				level = 51*level/100 + 2010;
 				if (level < 3054)
 					level = 3054;
 				if (level > lcm_params->brightness_max)
 					level = lcm_params->brightness_max;
-					return level;
+				return level;
 			}
 		}else if (level == 0){
 			return 0;
@@ -1622,7 +1622,7 @@ static int backlight_remapping_into_tddic_reg(struct disp_lcm_handle *plcm, int 
 				level = lcm_params->brightness_min;
 			if (level > lcm_params->brightness_max)
 				level = lcm_params->brightness_max;
-				return level;
+			return level;
 		} else if (level == 0){
 				return 0;
 		} else {
