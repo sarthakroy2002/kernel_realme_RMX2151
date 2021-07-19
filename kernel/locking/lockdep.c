@@ -4875,12 +4875,15 @@ EXPORT_SYMBOL_GPL(debug_show_all_locks);
  */
 void debug_show_held_locks(struct task_struct *task)
 {
+#if 0
 	if (unlikely(!debug_locks)) {
 		printk("INFO: lockdep is turned off.\n");
 		return;
 	}
+#endif
 	lockdep_print_held_locks(task);
 }
+
 EXPORT_SYMBOL_GPL(debug_show_held_locks);
 
 asmlinkage __visible void lockdep_sys_exit(void)
@@ -6006,9 +6009,7 @@ static noinline int trace_circular_bug(struct lock_list *this,
 static const char * const critical_lock_list[] = {
 	/* these locks are used by workqueue */
 	"&(&pool->lock)->rlock",
-	"works_lock",
-	/* the lock is used by console */
-	"&(&port->lock)->rlock"
+	"works_lock"
 };
 
 static bool is_critical_lock_held(void)
