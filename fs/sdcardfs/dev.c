@@ -142,7 +142,7 @@ free_memory:
     for(i--; i > 0; i--)
         kmem_cache_free(sdcardfs_path_cachep, denied_param[i]);
 
-	return 0;
+    return 0;
 }
 
 void sdcardfs_rename_record(struct dentry *old_dentry, struct dentry *new_dentry)
@@ -252,7 +252,7 @@ free_memory:
     for(i--; i > 0; i--)
         kmem_cache_free(sdcardfs_path_cachep, denied_param[i]);
 
-	kmem_cache_free(sdcardfs_path_cachep, buf);
+    kmem_cache_free(sdcardfs_path_cachep, buf);
 
 	mutex_unlock(&dcim_mutex);
 
@@ -306,7 +306,7 @@ free_memory:
     for(i--; i > 0; i--)
         kmem_cache_free(sdcardfs_path_cachep, denied_param[i]);
 
-	kmem_cache_free(sdcardfs_path_cachep, buf);
+    kmem_cache_free(sdcardfs_path_cachep, buf);
 
 	mutex_unlock(&dcim_mutex);
 
