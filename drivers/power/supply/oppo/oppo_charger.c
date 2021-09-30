@@ -100,7 +100,28 @@ static struct oppo_chg_chip *g_charger_chip = NULL;
 
 #define OPPO_CHG_DEFAULT_CHARGING_CURRENT        512
 
-int enable_charger_log = 0;
+#ifdef ODM_HQ_EDIT
+/*hongzhenglong@ODM.HQ.Charger 2020/04/02 modified for input current for SARTER */
+#define LIMIT_INPUT_CURRENT_MA_HIGH_1879 900
+#endif
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/11 modify for OVP in salaA*/
+#define VCHG_CNT_salaA 3
+#endif
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+extern int is_sala_a_project(void);
+extern int oppo_mt6360_disable_charging(void);
+extern int oppo_mt6360_suspend_charger(void);
+
+//Hongbin.Chen@ODM_LQ.BSP.CHG,	2020/08/19 ,Modify precharge voltage for pd/qc current little
+extern int mp2650_set_prechg_voltage_threshold(void);
+extern int set_prechg_tag;
+#endif
+
+int enable_charger_log = 2;
 int charger_abnormal_log = 0;
 int tbatt_pwroff_enable = 1;
 int vooc_high_temp = 0;
