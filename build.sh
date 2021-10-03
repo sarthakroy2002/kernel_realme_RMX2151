@@ -21,6 +21,7 @@ PATH="${PWD}/clang/bin:${PATH}:${PWD}/los-4.9-32/bin:${PATH}:${PWD}/los-4.9-64/b
 make -j$(nproc --all) O=out \
                       ARCH=arm64 \
                       CC="clang" \
+                      LD=ld.lld \
                       CLANG_TRIPLE=aarch64-linux-gnu- \
                       CROSS_COMPILE="${PWD}/los-4.9-64/bin/aarch64-linux-android-" \
                       CROSS_COMPILE_ARM32="${PWD}/los-4.9-32/bin/arm-linux-androideabi-" \
@@ -32,9 +33,9 @@ function zupload()
 git clone --depth=1 https://github.com/sarthakroy2002/AnyKernel3.git -b RMX2151 AnyKernel
 cp out/arch/arm64/boot/Image.gz-dtb AnyKernel
 cd AnyKernel
-zip -r9 Test-OSS-KERNEL-RMX2151.zip *
+zip -r9 ThunderStorm-KERNEL-RMX2151.zip *
 curl -sL https://git.io/file-transfer | sh
-./transfer wet Test-OSS-KERNEL-RMX2151.zip
+./transfer wet ThunderStorm-KERNEL-RMX2151.zip
 }
 
 compile
